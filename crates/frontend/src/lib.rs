@@ -212,7 +212,8 @@ pub fn open_main_window(data: &DataEntities, cx: &mut App) -> AnyWindowHandle {
             app_id: Some("PandoraLauncher".into()),
             window_min_size: Some(size(px(360.0), px(240.0))),
             titlebar: Some(TitlebarOptions {
-                title: Some(ts!("common.app_name")),
+                title: None,
+                appears_transparent: true,
                 ..Default::default()
             }),
             window_bounds,
@@ -220,8 +221,6 @@ pub fn open_main_window(data: &DataEntities, cx: &mut App) -> AnyWindowHandle {
             ..Default::default()
         },
         |window, cx| {
-            window.set_window_title(ts!("common.app_name").as_str());
-
             let launcher_root = cx.new(|cx| {
                 cx.observe_window_bounds(window, move |_, window, cx| {
                     let origin = window.bounds().origin;

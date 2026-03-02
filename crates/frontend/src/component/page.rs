@@ -1,5 +1,6 @@
 use gpui::{prelude::FluentBuilder, *};
 use gpui_component::{ActiveTheme, Colorize, h_flex, scroll::ScrollableElement, v_flex};
+use once_cell::sync::Lazy;
 
 use crate::icon::PandoraIcon;
 
@@ -74,14 +75,29 @@ impl RenderOnce for Page {
             .border_b_1()
             .border_color(cx.theme().border)
             .text_xl()
-            .child(div().left_2().child(self.title))
+            .child(div().left_2()
+                .on_any_mouse_down(|_, window, cx| {
+                    if window.default_prevented() {
+                        cx.stop_propagation();
+                    }
+                })
+                .bg(gpui::red())
+                .child(self.title))
             .child(h_flex().absolute().right_0().pr_4()
                 .gap_1()
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_any_mouse_down(|_, window, cx| {
+                    if window.default_prevented() {
+                        cx.stop_propagation();
+                    }
+                })
                 .bg(cx.theme().background)
                 .h_full()
                 .when(window_controls.minimize, |this| this.child(WindowControl::Minimize))
-                .when(window_controls.maximize, |this| this.child(WindowControl::Maximize))
+                .when(window_controls.maximize, |this| this.child(if window.is_maximized() {
+                    WindowControl::Restore
+                } else {
+                    WindowControl::Maximize
+                }))
                 .child(WindowControl::Close));
 
         if self.scrollable {
@@ -104,23 +120,28 @@ impl RenderOnce for Page {
 pub enum WindowControl {
     Minimize,
     Maximize,
+    Restore,
     Close,
 }
 
 impl RenderOnce for WindowControl {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        div()
+        let base = h_flex()
             .id(match self {
                 WindowControl::Minimize => "minimize",
                 WindowControl::Maximize => "maximize",
+                WindowControl::Restore => "restore",
                 WindowControl::Close => "close",
             })
+            .occlude()
             .window_control_area(match self {
                 WindowControl::Minimize => WindowControlArea::Min,
-                WindowControl::Maximize => WindowControlArea::Max,
+                WindowControl::Maximize | WindowControl::Restore => WindowControlArea::Max,
                 WindowControl::Close => WindowControlArea::Close,
             })
-            .p_1()
+            .size_8()
+            .justify_center()
+            .content_center()
             .rounded(cx.theme().radius)
             .hover(|this| {
                 let col = if self == WindowControl::Close {
@@ -131,18 +152,46 @@ impl RenderOnce for WindowControl {
                     cx.theme().secondary.darken(0.1).opacity(0.8)
                 };
                 this.bg(col)
-            })
-            .on_click(move |_, window, _| {
-                match self {
-                    WindowControl::Minimize => window.minimize_window(),
-                    WindowControl::Maximize => window.zoom_window(),
-                    WindowControl::Close => window.remove_window(),
-                }
-            })
-            .child(match self {
-                WindowControl::Minimize => PandoraIcon::WindowMinimize,
-                WindowControl::Maximize => PandoraIcon::WindowMaximize,
-                WindowControl::Close => PandoraIcon::WindowClose,
-            })
+            });
+        if cfg!(windows) {
+            base
+                .font_family(*ICON_FONT)
+                .text_size(px(10.0))
+                .child(match self {
+                    WindowControl::Minimize => "\u{e921}",
+                    WindowControl::Maximize => "\u{e922}",
+                    WindowControl::Restore => "\u{e923}",
+                    WindowControl::Close => "\u{e8bb}",
+                })
+        } else {
+            base
+                .on_click(move |_, window, _| {
+                    match self {
+                        WindowControl::Minimize => window.minimize_window(),
+                        WindowControl::Maximize | WindowControl::Restore => window.zoom_window(),
+                        WindowControl::Close => window.remove_window(),
+                    }
+                }).child(match self {
+                    WindowControl::Minimize => PandoraIcon::WindowMinimize,
+                    WindowControl::Maximize => PandoraIcon::WindowMaximize,
+                    WindowControl::Restore => PandoraIcon::WindowRestore,
+                    WindowControl::Close => PandoraIcon::WindowClose,
+                })
+        }
     }
 }
+
+static ICON_FONT: Lazy<&'static str> = Lazy::new(|| {
+    let mut version = unsafe { std::mem::zeroed() };
+    let status = unsafe {
+        windows::Wdk::System::SystemServices::RtlGetVersion(&mut version)
+    };
+
+    if status.is_ok() && version.dwBuildNumber >= 22000 {
+        // Windows 11
+        "Segoe Fluent Icons"
+    } else {
+        // Windows 10 and prior
+        "Segoe MDL2 Assets"
+    }
+});
