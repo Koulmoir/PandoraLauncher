@@ -51,6 +51,10 @@ pub enum MessageToBackend {
         id: InstanceID,
         loader: Loader
     },
+    SetInstancePreferredAccount {
+    	id: InstanceID,
+     	account: Option<Uuid>,
+    },
     SetInstancePreferredLoaderVersion {
         id: InstanceID,
         loader_version: Option<&'static str>
