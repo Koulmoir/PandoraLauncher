@@ -213,7 +213,7 @@ pub fn open_main_window(data: &DataEntities, cx: &mut App) -> AnyWindowHandle {
     let handle = cx.open_window(
         WindowOptions {
             app_id: Some("PandoraLauncher".into()),
-            window_min_size: Some(size(px(360.0), px(240.0))),
+            window_min_size: Some(size(px(500.0), px(250.0))),
             titlebar: Some(TitlebarOptions {
                 title: None,
                 appears_transparent: true,
