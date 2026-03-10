@@ -6,6 +6,8 @@ pub mod instance_list;
 pub mod menu;
 pub mod named_dropdown;
 pub mod page_path;
+pub mod player_model;
+pub mod player_model_widget;
 pub mod path_label;
 pub mod progress_bar;
 pub mod readonly_text_field;

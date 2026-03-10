@@ -249,6 +249,10 @@ common:
     en: Custom
   cancel:
     en: Cancel
+  reset:
+    en: Reset
+  apply_changes:
+    en: Apply Changes
   ok:
     en: OK
   nav:
@@ -736,3 +740,21 @@ settings:
       en: Password
     launcher_only_note:
       en: Note - Proxy settings only apply to the launcher, not the game itself
+skins:
+  title:
+    en: Skins
+  capes:
+    en: Capes
+  login_to_view_edit:
+    en: Login to view/edit %{username}'s skin
+  unable_to_load:
+    en: Unable to load %{username}'s skin
+  loading:
+    en: Loading %{username}'s skin...
+  no_offline:
+    en: Skins cannot be applied to offline accounts
+login:
+  title:
+    en: Login
+  error:
+    en: Error while logging in

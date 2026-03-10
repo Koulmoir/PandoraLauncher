@@ -105,12 +105,12 @@ impl Render for InstanceQuickplaySubpage {
         let theme = cx.theme();
 
         let state = self.worlds_state.load(Ordering::SeqCst);
-        if state.should_send_load_request() {
+        if state.should_load() {
             self.backend_handle.send_with_serial(MessageToBackend::RequestLoadWorlds { id: self.instance }, &self.worlds_serial);
         }
 
         let state = self.servers_state.load(Ordering::SeqCst);
-        if state.should_send_load_request() {
+        if state.should_load() {
             self.backend_handle.send_with_serial(MessageToBackend::RequestLoadServers { id: self.instance }, &self.servers_serial);
         }
 

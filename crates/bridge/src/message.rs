@@ -1,12 +1,12 @@
 use std::{
-    collections::BTreeMap, ffi::OsString, path::{Path, PathBuf}, sync::Arc
+    collections::BTreeMap, ffi::OsString, path::{Path, PathBuf}, sync::{Arc, atomic::AtomicU8}
 };
 
 use schema::{
     backend_config::{BackendConfig, ProxyConfig}, instance::{
         InstanceConfiguration, InstanceJvmBinaryConfiguration, InstanceJvmFlagsConfiguration,
         InstanceLinuxWrapperConfiguration, InstanceMemoryConfiguration, InstanceSystemLibrariesConfiguration, InstanceWrapperCommandConfiguration,
-    }, loader::Loader, pandora_update::UpdatePrompt
+    }, loader::Loader, minecraft_profile::{MinecraftProfileCape, SkinVariant}, pandora_update::UpdatePrompt
 };
 use ustr::Ustr;
 use uuid::Uuid;
@@ -201,6 +201,31 @@ pub enum MessageToBackend {
         import_accounts: bool,
         import_instances: bool,
         modal_action: ModalAction,
+    },
+    GetAccountSkin {
+        account: Uuid,
+        result: tokio::sync::oneshot::Sender<AccountSkinResult>
+    },
+    SetAccountSkin {
+        account: Uuid,
+        skin: Arc<[u8]>,
+        variant: SkinVariant,
+    },
+    GetAccountCapes {
+        account: Uuid,
+        result: tokio::sync::oneshot::Sender<AccountCapesResult>,
+    },
+    SetAccountCape {
+        account: Uuid,
+        cape: Option<Uuid>,
+    },
+    RequestSkinLibrary,
+    AddToSkinLibrary {
+        source: UrlOrFile,
+    },
+    Login {
+        account: Uuid,
+        modal_action: ModalAction,
     }
 }
 
@@ -274,6 +299,9 @@ pub enum MessageToFrontend {
         result: Result<MetadataResult, Arc<str>>,
         keep_alive_handle: Option<KeepAliveHandle>,
     },
+    SkinLibraryUpdated {
+        skin_library: SkinLibrary,
+    },
     UpdateAvailable {
         update: UpdatePrompt,
     },
@@ -309,8 +337,9 @@ pub enum BridgeNotificationType {
 }
 
 #[atomic_enum::atomic_enum]
-#[derive(PartialEq, Eq)]
+#[derive(Default, PartialEq, Eq)]
 pub enum BridgeDataLoadState {
+    #[default]
     Unloaded,
     LoadingDirty,
     LoadedDirty,
@@ -318,8 +347,14 @@ pub enum BridgeDataLoadState {
     Loaded,
 }
 
+impl Default for AtomicBridgeDataLoadState {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
 impl BridgeDataLoadState {
-    pub fn should_send_load_request(self) -> bool {
+    pub fn should_load(self) -> bool {
         match self {
             BridgeDataLoadState::Unloaded => true,
             BridgeDataLoadState::LoadingDirty => false,
@@ -334,6 +369,48 @@ impl BridgeDataLoadState {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct BridgeDataLoadState2(Arc<AtomicU8>);
+
+impl Default for BridgeDataLoadState2 {
+    fn default() -> Self {
+        Self(Arc::new(AtomicU8::new(BridgeDataLoadState2::UNLOADED)))
+    }
+}
+
+impl BridgeDataLoadState2 {
+    const LOADING: u8 = 1;
+    const OBSERVED: u8 = 2;
+    const DIRTY: u8 = 4;
+    const UNLOADED: u8 = !Self::LOADING;
+
+    pub fn should_load(&self) -> bool {
+        // Must be observed and dirty, but not loading
+        let value = self.0.load(std::sync::atomic::Ordering::Acquire);
+        (value == Self::OBSERVED | Self::DIRTY) || (value == Self::UNLOADED)
+    }
+
+    pub fn is_not_unloaded(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Acquire) != Self::UNLOADED
+    }
+
+    pub fn set_observed(&self) {
+        self.0.fetch_or(Self::OBSERVED, std::sync::atomic::Ordering::AcqRel);
+    }
+
+    pub fn set_dirty(&self) {
+        self.0.fetch_or(Self::DIRTY, std::sync::atomic::Ordering::AcqRel);
+    }
+
+    pub fn load_started(&self) {
+        self.0.store(Self::LOADING, std::sync::atomic::Ordering::Release);
+    }
+
+    pub fn load_finished(&self) {
+        self.0.fetch_and(!Self::LOADING, std::sync::atomic::Ordering::AcqRel);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QuickPlayLaunch {
     Singleplayer(OsString),
@@ -345,4 +422,37 @@ pub enum QuickPlayLaunch {
 pub enum EmbeddedOrRaw {
     Embedded(Arc<str>),
     Raw(Arc<[u8]>),
+}
+
+#[derive(Debug, Clone)]
+pub enum AccountSkinResult {
+    Success {
+        skin: Option<Arc<[u8]>>,
+    },
+    NeedsLogin,
+    UnableToLoadSkin,
+}
+
+#[derive(Debug, Clone)]
+pub enum AccountCapesResult {
+    Success {
+        capes: Vec<MinecraftProfileCape>,
+    },
+    NeedsLogin,
+}
+
+#[derive(Clone, Debug)]
+pub struct SkinLibrary {
+    pub state: BridgeDataLoadState2,
+    pub skins: Arc<[Arc<[u8]>]>,
+    pub folder: Arc<Path>
+}
+
+pub enum UrlOrFile {
+    Url {
+        url: Arc<str>,
+    },
+    File {
+        path: PathBuf,
+    }
 }

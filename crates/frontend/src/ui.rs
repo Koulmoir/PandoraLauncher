@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::{
     component::{menu::{MenuGroup, MenuGroupItem}, page_path::PagePath, title_bar::TitleBar}, entity::{
         DataEntities, instance::{InstanceAddedEvent, InstanceEntries, InstanceModifiedEvent, InstanceMovedToTopEvent, InstanceRemovedEvent}
-    }, icon::PandoraIcon, interface_config::InterfaceConfig, modals, pages::{import::ImportPage, instance::instance_page::InstancePage, instances_page::InstancesPage, modrinth_page::ModrinthSearchPage, modrinth_project_page::ModrinthProjectPage, page::Page, syncing_page::SyncingPage}, png_render_cache, ts
+    }, icon::PandoraIcon, interface_config::InterfaceConfig, modals, pages::{import::ImportPage, instance::instance_page::InstancePage, instances_page::InstancesPage, modrinth_page::ModrinthSearchPage, modrinth_project_page::ModrinthProjectPage, page::Page, skins_page::SkinsPage, syncing_page::SyncingPage}, png_render_cache, ts
 };
 
 pub struct LauncherUI {
@@ -34,6 +34,7 @@ pub struct LauncherUI {
 pub enum PageType {
     #[default]
     Instances,
+    Skins,
     Modrinth {
         installing_for: Option<SharedString>,
     },
@@ -53,6 +54,7 @@ impl PageType {
     pub fn title(&self) -> SharedString {
         match self {
             PageType::Instances => ts!("instance.title"),
+            PageType::Skins => ts!("skins.title"),
             PageType::Modrinth { installing_for } => {
                 if installing_for.is_some() {
                     ts!("instance.content.install.from_modrinth")
@@ -71,6 +73,7 @@ impl PageType {
 #[derive(IntoElement, Clone)]
 pub enum LauncherPage {
     Instances(Entity<InstancesPage>),
+    Skins(Entity<SkinsPage>),
     Modrinth(Entity<ModrinthSearchPage>),
     Import(Entity<ImportPage>),
     Syncing(Entity<SyncingPage>),
@@ -88,6 +91,7 @@ impl RenderOnce for LauncherPage {
 
         let (scrollable, controls, page) = match self {
             LauncherPage::Instances(entity) => process(entity, window, cx),
+            LauncherPage::Skins(entity) => process(entity, window, cx),
             LauncherPage::Modrinth(entity) => process(entity, window, cx),
             LauncherPage::Import(entity) => process(entity, window, cx),
             LauncherPage::Syncing(entity) => process(entity, window, cx),
@@ -220,6 +224,9 @@ impl LauncherUI {
             PageType::Instances => {
                 Ok(LauncherPage::Instances(cx.new(|cx| InstancesPage::new(data, window, cx))))
             },
+            PageType::Skins => {
+                Ok(LauncherPage::Skins(cx.new(|cx| SkinsPage::new(data, window, cx))))
+            },
             PageType::Modrinth { installing_for } => {
                 let installing_for = installing_for.as_ref().and_then(|name| InstanceEntries::find_id_by_name(&data.instances, name, cx));
 
@@ -296,11 +303,16 @@ impl Render for LauncherUI {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let page_type = InterfaceConfig::get(cx).main_page.clone();
 
-        let library_group = MenuGroup::new(ts!("instance.play"))
+        let library_group = MenuGroup::new("Minecraft")
             .child(MenuGroupItem::new(ts!("instance.title"))
                 .active(page_type == PageType::Instances)
                 .on_click(cx.listener(|launcher, _, window, cx| {
                     launcher.switch_page(PageType::Instances, &[], window, cx);
+                })))
+            .child(MenuGroupItem::new(ts!("skins.title"))
+                .active(page_type == PageType::Skins)
+                .on_click(cx.listener(|launcher, _, window, cx| {
+                    launcher.switch_page(PageType::Skins, &[], window, cx);
                 })));
 
         let content_group = MenuGroup::new(ts!("instance.content.title"))
