@@ -6,7 +6,6 @@ use bridge::{
 use reqwest::StatusCode;
 use schema::{content::ContentSource, curseforge::{CurseforgeGetModFilesRequest, CurseforgeModLoaderType}, loader::Loader, modrinth::{ModrinthLoader, ModrinthProjectVersionsRequest}};
 use sha1::{Digest, Sha1};
-use tokio::io::AsyncWriteExt;
 
 use crate::{BackendState, lockfile::Lockfile, metadata::{items::{CurseforgeGetModFilesMetadataItem, MinecraftVersionManifestMetadataItem, ModrinthProjectVersionsMetadataItem, ModrinthVersionMetadataItem}, manager::MetaLoadError}};
 

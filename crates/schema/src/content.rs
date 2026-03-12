@@ -9,7 +9,7 @@ pub enum ContentSource {
     Manual,
     ModrinthUnknown,
     ModrinthProject {
-        project: Arc<str>
+        project_id: Arc<str>
     },
     CurseforgeProject {
         project_id: u32,

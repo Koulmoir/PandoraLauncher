@@ -1,6 +1,6 @@
 use std::sync::{Arc};
 
-use bridge::{instance::{InstanceID}, message::{AtomicBridgeDataLoadState, MessageToBackend}, meta::MetadataRequest, modal_action::ModalAction, serial::AtomicOptionSerial};
+use bridge::{instance::{InstanceID}, message::{AtomicBridgeDataLoadState, MessageToBackend}, meta::MetadataRequest, serial::AtomicOptionSerial};
 use gpui::{prelude::*, *};
 use gpui_component::{
     ActiveTheme, Icon, StyledExt, WindowExt, button::{Button, ButtonVariants}, h_flex, notification::NotificationType, skeleton::Skeleton, tab::{Tab, TabBar}, text::TextView, v_flex
@@ -49,10 +49,10 @@ impl ModrinthProjectPage {
 
                 let mods = instance.mods.read(cx);
                 for summary in mods.iter() {
-                    let ContentSource::ModrinthProject { project } = &summary.content_source else {
+                    let ContentSource::ModrinthProject { project_id } = &summary.content_source else {
                         continue;
                     };
-                    let installed = installed_mods_by_project.entry(project.clone()).or_default();
+                    let installed = installed_mods_by_project.entry(project_id.clone()).or_default();
 
                     let status = summary.update.status_if_matches(
                         instance.configuration.loader,
@@ -77,14 +77,14 @@ impl ModrinthProjectPage {
 
                     let mods = entity.read(cx);
                     for summary in mods.iter() {
-                        let ContentSource::ModrinthProject { project } = &summary.content_source else {
+                        let ContentSource::ModrinthProject { project_id } = &summary.content_source else {
                             continue;
                         };
                         let status = summary.update.status_if_matches(
                             instance.configuration.loader,
                             instance.configuration.minecraft_version.as_str().into()
                         );
-                        let installed = page.installed_mods_by_project.entry(project.clone()).or_default();
+                        let installed = page.installed_mods_by_project.entry(project_id.clone()).or_default();
                         installed.push(InstalledMod {
                             mod_id: summary.id,
                             status,
@@ -261,53 +261,7 @@ impl Render for ModrinthProjectPage {
                         let project_id_str = project_id_str.clone();
                         move |_, window, cx| {
                             if project_type != ModrinthProjectType::Other {
-                                match &primary_action {
-                                    PrimaryAction::Install | PrimaryAction::Reinstall => {
-                                        crate::modals::modrinth_install::open(
-                                            project_name.as_ref(),
-                                            project_id_str.clone(),
-                                            project_type,
-                                            install_for,
-                                            &data,
-                                            window,
-                                            cx,
-                                        );
-                                    },
-                                    PrimaryAction::InstallLatest => {
-                                        crate::modals::modrinth_install_auto::open(
-                                            project_name.as_ref(),
-                                            project_id_str.clone(),
-                                            project_type,
-                                            install_for.unwrap(),
-                                            &data,
-                                            window,
-                                            cx,
-                                        );
-                                    },
-                                    PrimaryAction::CheckForUpdates => {
-                                        let modal_action = ModalAction::default();
-                                        data.backend_handle.send(MessageToBackend::UpdateCheck {
-                                            instance: install_for.unwrap(),
-                                            modal_action: modal_action.clone(),
-                                        });
-                                        crate::modals::generic::show_notification(window, cx,
-                                            ts!("instance.content.update.check.error"), modal_action);
-                                    },
-                                    PrimaryAction::ErrorCheckingForUpdates => {},
-                                    PrimaryAction::UpToDate => {},
-                                    PrimaryAction::Update(ids) => {
-                                        for id in ids {
-                                            let modal_action = ModalAction::default();
-                                            data.backend_handle.send(MessageToBackend::UpdateContent {
-                                                instance: install_for.unwrap(),
-                                                content_id: *id,
-                                                modal_action: modal_action.clone(),
-                                            });
-                                            crate::modals::generic::show_notification(window, cx,
-                                                ts!("instance.content.update.error"), modal_action);
-                                        }
-                                    },
-                                }
+                                primary_action.perform(project_name.as_str(), &project_id_str, project_type, install_for, &data, window, cx);
                             } else {
                                 window.push_notification(
                                     (NotificationType::Error, ts!("instance.content.install.unknown_type")),

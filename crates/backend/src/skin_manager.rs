@@ -1,7 +1,6 @@
 use std::{collections::HashMap, io::Cursor, path::Path, sync::Arc, time::SystemTime};
 
 use bridge::message::{AccountSkinResult, BridgeDataLoadState2, MessageToFrontend, SkinLibrary};
-use futures::SinkExt;
 use image::DynamicImage;
 use parking_lot::RwLock;
 use rustc_hash::FxHashMap;

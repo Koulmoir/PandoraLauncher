@@ -535,10 +535,10 @@ impl BackendState {
 
                                     let result = result?;
 
-                                    if let ContentSource::ModrinthProject { ref project } = source {
-                                        if &result.0.project_id != project {
+                                    if let ContentSource::ModrinthProject { ref project_id } = source {
+                                        if &result.0.project_id != project_id {
                                             log::error!("Refusing to update {:?}, mismatched project ids: expected {}, got {}",
-                                                summary.content_summary.hash, project, &result.0.project_id);
+                                                summary.content_summary.hash, project_id, &result.0.project_id);
                                             return Ok(ContentUpdateAction::ErrorNotFound);
                                         }
                                     }
@@ -728,7 +728,7 @@ impl BackendState {
                                         sha1: file.hashes.sha1.clone(),
                                         size: file.size,
                                     },
-                                    content_source: ContentSource::ModrinthProject { project: project_id },
+                                    content_source: ContentSource::ModrinthProject { project_id },
                                 }].into(),
                             }
                         },
@@ -1624,9 +1624,9 @@ impl BackendState {
         }
 
         let try_permit = self.login_semaphore.try_acquire();
-        let mut await_permit = None;
+        let mut _await_permit = None;
         if matches!(try_permit, Err(TryAcquireError::NoPermits)) {
-            await_permit = Some(self.login_semaphore.acquire().await);
+            _await_permit = Some(self.login_semaphore.acquire().await);
 
             if let Some(cached_profile) = self.cached_minecraft_profiles.read().get(&account) {
                 if cached_profile.is_valid(Instant::now()) {

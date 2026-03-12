@@ -675,7 +675,7 @@ impl ContentSources {
             Ok(existing) => {
                 let old_source = &mut values[existing].1;
                 let skip = match old_source {
-                    ContentSource::ModrinthProject { project: _ } => {
+                    ContentSource::ModrinthProject { project_id: _ } => {
                         old_source == &value || value == ContentSource::ModrinthUnknown
                     },
                     _ => old_source == &value
@@ -733,18 +733,18 @@ impl ContentSources {
                 data.push(1_u8);
                 data.push(0_u8);
             },
-            ContentSource::ModrinthProject { project } => {
+            ContentSource::ModrinthProject { project_id } => {
                 data.push(2_u8);
-                if project.len() > 127 {
-                    panic!("modrinth project id was unexpectedly big: {:?}", &project);
+                if project_id.len() > 127 {
+                    panic!("modrinth project id was unexpectedly big: {:?}", &project_id);
                 }
-                data.push(project.len() as u8);
-                data.extend_from_slice(project.as_bytes());
+                data.push(project_id.len() as u8);
+                data.extend_from_slice(project_id.as_bytes());
             },
-            ContentSource::CurseforgeProject { project_id: project } => {
+            ContentSource::CurseforgeProject { project_id } => {
                 data.push(3_u8);
                 data.push(4_u8);
-                data.extend_from_slice(&project.to_le_bytes());
+                data.extend_from_slice(&project_id.to_le_bytes());
             }
         }
     }
@@ -833,7 +833,7 @@ impl ContentSources {
                             continue;
                         };
 
-                        ContentSource::ModrinthProject { project: project_id.into() }
+                        ContentSource::ModrinthProject { project_id: project_id.into() }
                     },
                     3 => {
                         debug_assert_eq!(type_and_size_buf[1], 4);

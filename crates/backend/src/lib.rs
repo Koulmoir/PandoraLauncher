@@ -161,7 +161,7 @@ pub(crate) fn cas_update(state: &Arc<AtomicBridgeDataLoadState>, func: impl Fn(B
 }
 
 #[derive(Debug)]
-pub(crate) struct FolderChanges {
+pub struct FolderChanges {
     all_dirty: bool,
     paths: FxHashSet<Arc<Path>>,
 }
