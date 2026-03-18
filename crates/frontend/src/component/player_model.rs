@@ -147,10 +147,13 @@ impl Element for PlayerModel {
         window: &mut gpui::Window,
         cx: &mut gpui::App,
     ) {
-        let height = bounds.size.height.as_f32() as u32;
-        let width = (height as f32 * crate::skin_renderer::ASPECT_RATIO as f32) as u32;
+        let element_height = bounds.size.height.as_f32().round();
+        let element_width = (element_height as f32 * crate::skin_renderer::ASPECT_RATIO as f32).round();
+        let window_scale = window.scale_factor();
+        let image_height = (element_height * window_scale) as u32;
+        let image_width = (element_width * window_scale) as u32;
         self.state.update(cx, |state, cx| {
-            if state.render_task.is_none() && state.needs_rerender(width, height) {
+            if state.render_task.is_none() && state.needs_rerender(image_width, image_height) {
                 let skin = state.skin.clone();
                 let cape = state.cape.clone();
                 let yaw = state.yaw;
@@ -160,7 +163,7 @@ impl Element for PlayerModel {
                 let (send, recv) = tokio::sync::oneshot::channel();
 
                 cx.background_executor().spawn(async move {
-                    send.send(crate::skin_renderer::render_skin_3d(&skin, cape.as_deref(), width, height, yaw, pitch, animation))
+                    send.send(crate::skin_renderer::render_skin_3d(&skin, cape.as_deref(), image_width, image_height, yaw, pitch, animation))
                 }).detach();
 
                 let skin = state.skin.clone();
@@ -187,8 +190,8 @@ impl Element for PlayerModel {
                             yaw,
                             pitch,
                             animation,
-                            width,
-                            height,
+                            width: image_width,
+                            height: image_height,
                         });
                         state.render_task = None;
                         cx.notify();
@@ -200,7 +203,7 @@ impl Element for PlayerModel {
                 _ = window.paint_image(
                     Bounds {
                         origin: bounds.origin,
-                        size: Size::new(px(width as f32), px(height as f32)),
+                        size: Size::new(px(element_width), px(element_height)),
                     },
                     Default::default(),
                     rendered.image.clone(),
