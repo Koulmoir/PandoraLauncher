@@ -501,7 +501,7 @@ fn run_admin_powershell(script: &OsStr) -> std::process::ExitStatus {
         );
 
         use std::os::windows::ffi::OsStrExt;
-        let encoded = crate::join_windows_shell_os(&["-Command", script]).encode_wide()
+        let encoded = crate::join_windows_shell_os(&[OsStr::new("-Command"), script]).encode_wide()
             .chain(OsStr::new("\0").encode_wide())
             .collect::<Vec<_>>();
 
