@@ -303,7 +303,7 @@ impl ListDelegate for ServersListDelegate {
     fn render_item(
         &mut self,
         ix: IndexPath,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<ListState<Self>>,
     ) -> Option<Self::Item> {
         let interface_config = InterfaceConfig::get(cx);

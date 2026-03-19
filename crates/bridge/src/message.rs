@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap, ffi::OsString, hash::Hash, path::{Path, PathBuf}, sync::{Arc, atomic::AtomicU8}
+    collections::BTreeMap, ffi::OsString, path::{Path, PathBuf}, sync::{Arc, atomic::AtomicU8}
 };
 
 use schema::{
