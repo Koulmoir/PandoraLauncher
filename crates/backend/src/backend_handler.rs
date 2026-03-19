@@ -1417,7 +1417,7 @@ impl BackendState {
 
                     #[cfg(windows)]
                     if let Ok(target) = junction::get_target(&instance.root_path) {
-                        if let Err(err) = std::fs::rename(&target, &path) {
+                        if let Err(err) = crate::rename_with_fallback_across_devices(&target, &path) {
                             log::error!("Unable to move instance files from {target:?} to {path:?}: {err:?}");
                             self.send.send_error(format!("Unable to move instance files: {err}"));
                             return;
@@ -1435,7 +1435,7 @@ impl BackendState {
                     };
 
                     if let Ok(target) = std::fs::read_link(&instance.root_path) {
-                        if let Err(err) = std::fs::rename(&target, &path) {
+                        if let Err(err) = crate::rename_with_fallback_across_devices(&target, &path) {
                             log::error!("Unable to move instance files from {target:?} to {path:?}: {err:?}");
                             self.send.send_error(format!("Unable to move instance files: {err}"));
                             return;
@@ -1463,7 +1463,7 @@ impl BackendState {
                         return;
                     }
 
-                    if let Err(err) = std::fs::rename(&instance.root_path, &path) {
+                    if let Err(err) = crate::rename_with_fallback_across_devices(&instance.root_path, &path) {
                         log::error!("Unable to move instance files: {err:?}");
                         self.send.send_error(format!("Unable to move instance files: {err}"));
                         return;

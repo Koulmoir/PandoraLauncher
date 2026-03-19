@@ -1,7 +1,7 @@
 #![deny(unused_must_use)]
 
 mod backend;
-use std::{ffi::{OsStr, OsString}, io::Write, path::{Path, PathBuf}, sync::Arc};
+use std::{ffi::{OsStr, OsString}, io::{ErrorKind, Write}, path::{Path, PathBuf}, sync::Arc};
 
 pub use backend::*;
 use bridge::instance::InstanceContentSummary;
@@ -195,6 +195,163 @@ impl FolderChanges {
         } else {
             other.paths.extend(self.paths);
         }
+    }
+}
+
+pub fn copy_content_recursive(from: &Path, to: &Path) -> std::io::Result<()> {
+    let from = from.canonicalize()?;
+    if !from.is_dir() {
+        return Err(ErrorKind::NotADirectory.into());
+    }
+    if !to.is_dir() {
+        return Err(ErrorKind::AlreadyExists.into());
+    }
+
+    let mut directories = Vec::new();
+    let mut files = Vec::new();
+    let mut internal_symlinks = Vec::new();
+    let mut external_symlinks = Vec::new();
+    #[cfg(windows)]
+    let mut internal_junctions = Vec::new();
+    #[cfg(windows)]
+    let mut external_junctions = Vec::new();
+
+    let mut total_bytes = 0;
+
+    let mut directories_to_visit = Vec::new();
+    directories_to_visit.push((from.to_path_buf(), 0));
+
+    while let Some((directory, depth)) = directories_to_visit.pop() {
+        let read_dir = std::fs::read_dir(directory)?;
+        for entry in read_dir {
+            let entry = entry?;
+            let path = entry.path();
+            let file_type = entry.file_type()?;
+            let Ok(relative) = path.strip_prefix(&from) else {
+                return Err(ErrorKind::Other.into());
+            };
+            if file_type.is_symlink() {
+                let target = std::fs::read_link(&path)?;
+                if let Ok(internal) = target.strip_prefix(&from) {
+                    internal_symlinks.push((relative.to_path_buf(), internal.to_path_buf()));
+                } else {
+                    external_symlinks.push((relative.to_path_buf(), target));
+                }
+            } else if file_type.is_file() {
+                let metadata = entry.metadata()?;
+                files.push((relative.to_path_buf(), path));
+                total_bytes += metadata.len();
+
+            } else if file_type.is_dir() {
+                #[cfg(windows)]
+                if let Some(target) = junction::get_target(&path) {
+                    if let Ok(internal) = target.strip_prefix(&from) {
+                        internal_junctions.push((relative.to_path_buf(), internal.to_path_buf()));
+                    } else {
+                        external_junctions.push((relative.to_path_buf(), target));
+                    }
+                    continue;
+                }
+
+                if depth >= 256 {
+                    return Err(ErrorKind::QuotaExceeded.into());
+                }
+
+                directories.push(relative.to_path_buf());
+                directories_to_visit.push((path, depth+1));
+            }
+        }
+    }
+
+    for directory in directories {
+        _ = std::fs::create_dir(to.join(directory));
+    }
+    let mut copied_bytes = 0;
+    for (relative, copy_from) in files {
+        let dest = to.join(relative);
+        copied_bytes += std::fs::copy(copy_from, dest)?;
+    }
+    if copied_bytes != total_bytes {
+        return Err(ErrorKind::Interrupted.into());
+    }
+    for (relative, internal) in internal_symlinks {
+        let dest = to.join(relative);
+        let target = to.join(internal);
+        symlink_dir_or_file(&target, &dest)?;
+    }
+    for (relative, target) in external_symlinks {
+        let dest = to.join(relative);
+        symlink_dir_or_file(&target, &dest)?;
+    }
+    #[cfg(windows)]
+    for (relative, internal) in internal_junctions {
+        let dest = to.join(relative);
+        let target = to.join(internal);
+        junction::create(&target, &dest)?;
+    }
+    #[cfg(windows)]
+    for (relative, target) in external_junctions {
+        let dest = to.join(relative);
+        junction::create(&target, &dest)?;
+    }
+    Ok(())
+}
+
+pub fn symlink_dir_or_file(original: &Path, link: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        if !original.exists() {
+            return Err(ErrorKind::NotFound.into());
+        }
+        std::os::unix::fs::symlink(original, link)
+    }
+    #[cfg(windows)]
+    {
+        let metadata = original.metadata()?;
+        if metadata.is_dir() {
+            std::os::windows::fs::symlink_dir(original, link)
+        } else if metadata.is_file() {
+            std::os::windows::fs::symlink_file(original, link)
+        } else {
+            return Err(ErrorKind::NotFound.into());
+        }
+    }
+    #[cfg(not(any(windows, unix)))]
+    compile_error!("Unsupported platform: can't symlink");
+}
+
+pub fn rename_with_fallback_across_devices(from: &Path, to: &Path) -> std::io::Result<()> {
+    // Remove empty 'to' directory to ensure consistent behaviour across unix and windows
+    if let Err(err) = std::fs::remove_dir(to) && err.kind() != ErrorKind::NotADirectory {
+        return Err(err);
+    }
+    if let Err(err) = std::fs::rename(from, to) {
+        if err.kind() == ErrorKind::CrossesDevices {
+            // Obviously this is racy, but this is the best we can do
+            if from.is_symlink() {
+                let target = std::fs::read_link(from)?;
+                symlink_dir_or_file(&target, to)?;
+                _ = std::fs::remove_file(from);
+            } else if from.is_dir() {
+                std::fs::create_dir(to)?;
+                if let Err(err) = copy_content_recursive(from, to) {
+                    _ = std::fs::remove_dir_all(to);
+                    return Err(err);
+                } else {
+                    _ = std::fs::remove_dir_all(from);
+                    return Ok(());
+                }
+            } else if from.is_file() {
+                std::fs::copy(from, to)?;
+                _ = std::fs::remove_file(from);
+            } else {
+                return Err(ErrorKind::InvalidInput.into());
+            }
+            return Ok(());
+        }
+        Err(err)
+    } else {
+        Ok(())
     }
 }
 
