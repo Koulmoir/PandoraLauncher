@@ -25,7 +25,7 @@ struct Cli {
     /// Internal function to set traversable ACLs in an elevated context
     #[cfg(windows)]
     #[arg(long, hide = false, num_args = 2..)]
-    internal_set_traverse_acls: Option<Vec<OsString>>,
+    internal_set_traverse_acls: Option<Vec<std::ffi::OsString>>,
 }
 
 pub mod panic;
