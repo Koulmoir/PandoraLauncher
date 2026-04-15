@@ -9,6 +9,7 @@ ftree.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 gpui-component.workspace = true
+gpui-component-assets.workspace = true
 image.workspace = true
 lexical-sort.workspace = true
 lru.workspace = true
