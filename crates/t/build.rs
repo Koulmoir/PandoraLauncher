@@ -9,49 +9,6 @@ fn main() {
     let dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let dir = Path::new(&dir);
 
-    // let old = std::fs::read_to_string(dir.join("old.toml")).unwrap();
-
-    // let mut new = String::new();
-
-    // let mut path = Vec::new();
-    // for line in old.lines() {
-    //     if line.trim_ascii().is_empty() {
-    //         continue;
-    //     }
-
-    //     let leading_whitespace = line.len() - line.trim_ascii_start().len();
-
-    //     if leading_whitespace % 2 != 0 {
-    //         panic!();
-    //     }
-
-    //     let depth = leading_whitespace / 2;
-    //     path.truncate(depth);
-
-    //     let line = line.trim_ascii();
-    //     if line.is_empty() {
-    //         continue;
-    //     }
-    //     let (one, two) = line.split_once(':').unwrap();
-
-    //     if one == "en" {
-    //         let joined = path.join(".");
-
-    //         new.push_str("[");
-    //         new.push_str(&joined);
-    //         new.push_str("]\n");
-
-    //         new.push_str("en = \"");
-    //         new.push_str(two.trim_ascii());
-    //         new.push_str("\"\n");
-    //     }
-
-    //     path.push(one.to_string());
-    // }
-
-    // let path = dir.join("locale.toml");
-    // std::fs::write(&path, new.as_bytes()).unwrap();
-
     if let Err(err) = inner(dir) {
         let lib = dir.join("src").join("lib.rs");
         let err = format!("{}", err);
